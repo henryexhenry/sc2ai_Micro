@@ -3,6 +3,7 @@ from pysc2.lib import actions, features, units
 from pysc2.env import sc2_env
 from pysc2 import maps
 from absl import app
+import random
 import math
 import numpy as np
 
@@ -130,19 +131,21 @@ class hyAgent(base_agent.BaseAgent):
         player_fltn = np.array(player).flatten() # player's coordinates
         min_distance_fltn = np.array(min_distance).flatten() # distance
 
-        closest_coor, enemy_coor, unit_index, enemy_index, dist = self.closest_enemy(player, enemy)
+        if player and enemy:
+            closest_coor, enemy_coor, unit_index, enemy_index, dist = self.closest_enemy(player, enemy)
 
+        '''
         selecting_closest = []
         index = -1
-#############################################################TODO
-        for i in range(0, DEFAULT_PLAYER_COUNT):
+        
+        for i in range(0, player_unit_count):
             if is_selected[i] == 1 and is_selected[1-i] != 1:
                 index = i
         if index == unit_index :
             selecting_closest.append(1)
         else:
             selecting_closest.append(0)
-
+        '''
         # combine all features horizontally
         current_state = np.hstack((enemy_fltn, player_fltn, is_selected))
         print("is_selected = ", is_selected)
@@ -171,14 +174,16 @@ class hyAgent(base_agent.BaseAgent):
     def closest_enemy(self, unit_locs, enemy_locs):
         dist = 10000
         index = -1
+        unit_index = 0
+        enemy_index = 0
         #for i in range(0, 2):
-        for i in range(0, len(unit_locs)):
+        for i in range(len(unit_locs)):
             for j in range(len(enemy_locs)):
                 if self.calculate_distance(unit_locs[i], enemy_locs[j]) < dist:
                     dist = self.calculate_distance(unit_locs[i], enemy_locs[j])
                     unit_index = i
                     enemy_index = j
-        return unit_locs[i], enemy_locs[j], unit_index, enemy_index, dist
+        return unit_locs[unit_index], enemy_locs[enemy_index], unit_index, enemy_index, dist
 
     def move_backward(self, unit_coor, enemy_coor):
         if enemy_coor[0] - unit_coor[0] >= 0 :
@@ -222,7 +227,7 @@ class hyAgent(base_agent.BaseAgent):
         # if no enemy in the screen
         # attack minimap at coor (49,49)
         if enemy_count == 0:
-            self.attack_coordinates = (49,49)
+            self.attack_coordinates = (random.randint(0,49), random.randint(0,49))
 
             if self.unit_type_is_selected(obs, units.Terran.Marine):
                 if self.can_do(obs, actions.FUNCTIONS.Attack_minimap.id):
@@ -235,19 +240,28 @@ class hyAgent(base_agent.BaseAgent):
             unit_coor, enemy_coor, unit_index, enemy_index, dist = self.closest_enemy(player_loc, enemy_loc)
 
             # if enemy is too close to unit
-            if dist < _ATTACK_RANGE // 2:
+            if dist < _ATTACK_RANGE - 2:
                 # move backward
                 x, y = self.move_backward(unit_coor, enemy_coor)
                 if self.unit_type_is_selected(obs, units.Terran.Marine):
                     if self.can_do(obs, actions.FUNCTIONS.Move_screen.id):
-                        return actions.FUNCTIONS.Move_screen([0], [x, y])
+                        return actions.FUNCTIONS.Move_screen([1], [x, y])
 
                 if self.can_do(obs, actions.FUNCTIONS.select_army.id):
                     return actions.FUNCTIONS.select_army("select")
 
             if self.unit_type_is_selected(obs, units.Terran.Marine):
                 if self.can_do(obs, actions.FUNCTIONS.Attack_screen.id):
-                    return actions.FUNCTIONS.Attack_screen("now", enemy_coor)
+                    _x, _y = enemy_coor
+                    if enemy_coor[0] > 80:
+                        _x = 80
+                    if enemy_coor[0] < 8:
+                        _x = 8
+                    if enemy_coor[1] > 80:
+                        _y = 80
+                    if enemy_coor[1] < 8:
+                        _y = 8
+                    return actions.FUNCTIONS.Attack_screen("now", [_x, _y])
 
 
         '''
