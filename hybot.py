@@ -6,8 +6,9 @@ from absl import app
 import random
 import math
 import numpy as np
-
-_mapName = 'FindAndDefeatZerglings'
+map_01 = 'HK2V1_RESET_1DIE'
+map_02 = 'FindAndDefeatZerglings'
+_mapName = map_02
 
 '''
 Strategy:
@@ -231,53 +232,62 @@ class hyAgent(base_agent.BaseAgent):
 
             if self.unit_type_is_selected(obs, units.Terran.Marine):
                 if self.can_do(obs, actions.FUNCTIONS.Attack_minimap.id):
-                    return actions.FUNCTIONS.Attack_minimap("now", self.attack_coordinates)
+                    return actions.FUNCTIONS.Attack_minimap([1], self.attack_coordinates)
 
             if self.can_do(obs, actions.FUNCTIONS.select_army.id):
                 return actions.FUNCTIONS.select_army("select")
         else: # enemy count > 0
+            if player_loc:
+                unit_coor, enemy_coor, unit_index, enemy_index, dist = self.closest_enemy(player_loc, enemy_loc)
 
-            unit_coor, enemy_coor, unit_index, enemy_index, dist = self.closest_enemy(player_loc, enemy_loc)
+                # if enemy is too close to unit
+                if dist < _ATTACK_RANGE // 2:
+                    # move backward
+                    '''
+                    x, y = self.move_backward(unit_coor, enemy_coor)
+                    if self.unit_type_is_selected(obs, units.Terran.Marine):
+                        if self.can_do(obs, actions.FUNCTIONS.Move_screen.id):
+                            return actions.FUNCTIONS.Move_screen([0], [x, y])
+                    '''
+                    # instead of moving the whole team backward, i want to only move the closest unit back.
+                    # if the closest unit has been selected, 
+                    x, y = self.move_backward(unit_coor, enemy_coor)
+                    if len(obs.observation.single_select) == 1: 
+                    # if self.unit_type_is_selected(obs, units.Terran.Marine):
+                        if self.can_do(obs, actions.FUNCTIONS.Move_screen.id):
+                            return actions.FUNCTIONS.Move_screen([0], [x, y])
 
-            # if enemy is too close to unit
-            if dist < _ATTACK_RANGE - 2:
-                # move backward
-                x, y = self.move_backward(unit_coor, enemy_coor)
+                    if self.can_do(obs, actions.FUNCTIONS.select_unit.id):
+                        return actions.FUNCTIONS.select_unit("select", [unit_index])
+
                 if self.unit_type_is_selected(obs, units.Terran.Marine):
-                    if self.can_do(obs, actions.FUNCTIONS.Move_screen.id):
-                        return actions.FUNCTIONS.Move_screen([1], [x, y])
-
-                if self.can_do(obs, actions.FUNCTIONS.select_army.id):
-                    return actions.FUNCTIONS.select_army("select")
-
-            if self.unit_type_is_selected(obs, units.Terran.Marine):
-                if self.can_do(obs, actions.FUNCTIONS.Attack_screen.id):
-                    _x, _y = enemy_coor
-                    if enemy_coor[0] > 80:
-                        _x = 80
-                    if enemy_coor[0] < 8:
-                        _x = 8
-                    if enemy_coor[1] > 80:
-                        _y = 80
-                    if enemy_coor[1] < 8:
-                        _y = 8
-                    return actions.FUNCTIONS.Attack_screen("now", [_x, _y])
+                    if self.can_do(obs, actions.FUNCTIONS.Attack_screen.id):
+                        _x, _y = enemy_coor
+                        if enemy_coor[0] > 80:
+                            _x = 80
+                        if enemy_coor[0] < 8:
+                            _x = 8
+                        if enemy_coor[1] > 80:
+                            _y = 80
+                        if enemy_coor[1] < 8:
+                            _y = 8
+                        return actions.FUNCTIONS.Attack_screen([1], [_x, _y])
 
 
-        '''
-        if obs.first():
-            # nonzero 返回2d list中非零元素的坐标
-            player_y, player_x = (obs.observation.feature_minimap.player_relative == features.PlayerRelative.SELF).nonzero()
-            xmean = player_x.mean()
-            ymean = player_y.mean()
-        
-            if xmean <= 31 and ymean <= 31:
-                self.attack_coordinates = (49, 49)
-            else:
-                self.attack_coordinates = (12, 16)
-        '''
+            '''
+            if obs.first():
+                # nonzero 返回2d list中非零元素的坐标
+                player_y, player_x = (obs.observation.feature_minimap.player_relative == features.PlayerRelative.SELF).nonzero()
+                xmean = player_x.mean()
+                ymean = player_y.mean()
+            
+                if xmean <= 31 and ymean <= 31:
+                    self.attack_coordinates = (49, 49)
+                else:
+                    self.attack_coordinates = (12, 16)
+            '''
 
-        return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
+            return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
 
 def main(unused_argv):
     agent = hyAgent()
@@ -296,7 +306,7 @@ def main(unused_argv):
                             screen=84, minimap=64),  # 设置画面解像度，决定机器人的视野
                         use_feature_units=True
                     ),
-                    step_mul=1,  # 机器人采取行动（action）前需要进行的‘game step’ 数量 （数值越小，APM越高）
+                    step_mul=2,  # 机器人采取行动（action）前需要进行的‘game step’ 数量 （数值越小，APM越高）
                     game_steps_per_episode=0,  # 游戏时长，设为0即不限时
                     visualize=True) as env:  # optional 显示出observation layer 的detail， 帮助我们理解机器人的进程
 
